@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { Camera } from 'expo-camera';
 import { cameraWithTensors } from '@tensorflow/tfjs-react-native';
 import * as tf from '@tensorflow/tfjs'
+
+
+const SCREEN_WIDTH = Dimensions.get('window').width
+const CAMERA_WIDTH = SCREEN_WIDTH
+const CAMERA_HEIGHT = CAMERA_WIDTH
+
 const TensorCamera = cameraWithTensors(Camera);
 
 function handleCameraStream(images, updatePreview, gl) {
@@ -25,6 +31,7 @@ function handleCameraStream(images, updatePreview, gl) {
 export default function App() {
   const [hasPermission, setHasPermission] = useState(null);
   const [type, setType] = useState(Camera.Constants.Type.back);
+  // const [model, setModel] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -42,30 +49,12 @@ export default function App() {
   }
   return (
     <View style={styles.container}>
-      {/* <Camera style={styles.camera} type={type}>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => {
-              setType(
-                type === Camera.Constants.Type.back
-                  ? Camera.Constants.Type.front
-                  : Camera.Constants.Type.back
-              );
-            }}>
-            <Text style={styles.text}> Flip </Text>
-          </TouchableOpacity>
-        </View>
-      </Camera> */}
       <TensorCamera
-       // Standard Camera props
        style={styles.camera}
        type={Camera.Constants.Type.front}
-       // Tensor related props
-      //  cameraTextureHeight={textureDims.height}
-      //  cameraTextureWidth={textureDims.width}
-       resizeHeight={200}
-       resizeWidth={152}
+
+       resizeHeight={CAMERA_HEIGHT}
+       resizeWidth={CAMERA_WIDTH}
        resizeDepth={3}
        onReady={handleCameraStream}
        autorender={true}
@@ -79,7 +68,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   camera: {
-    flex: 1,
+    width: CAMERA_WIDTH,
+    height: CAMERA_HEIGHT,
   },
   buttonContainer: {
     flex: 1,
