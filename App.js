@@ -1,45 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { fetch, decodeJpeg, bundleResourceIO } from '@tensorflow/tfjs-react-native';
 import { Camera } from 'expo-camera';
 import { cameraWithTensors } from '@tensorflow/tfjs-react-native';
 import * as tf from '@tensorflow/tfjs'
+import * as cocossd from '@tensorflow-models/coco-ssd'
 
 
 const SCREEN_WIDTH = Dimensions.get('window').width
-const CAMERA_WIDTH = SCREEN_WIDTH
+const multiple = 4.0
+const CAMERA_WIDTH = multiple * Math.ceil(SCREEN_WIDTH/multiple)
 const CAMERA_HEIGHT = CAMERA_WIDTH
 
 const TensorCamera = cameraWithTensors(Camera);
 
-function handleCameraStream(images, updatePreview, gl) {
-  const loop = async () => {
-    const nextImageTensor = images.next().value
-
-    //
-    // do something with tensor here
-    //
-
-    // if autorender is false you need the following two lines.
-    // updatePreview();
-    // gl.endFrameEXP();
-
-    requestAnimationFrame(loop);
-  }
-  loop();
+let textureDims;
+if (Platform.OS === 'ios') {
+ textureDims = {
+   height: 1920,
+   width: 1080,
+ };
+} else {
+ textureDims = {
+   height: 1200,
+   width: 1600,
+ };
 }
+
+const tensorDims = {width: 152, height: 200}
 
 export default function App() {
   const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(Camera.Constants.Type.back);
-  // const [model, setModel] = useState(null);
+  // const [type, setType] = useState(Camera.Constants.Type.back);
+  const [model, setModel] = useState(null);
+  const [prediction, setPrediction] = useState({
+    score: null,
+    class: null
+  });
 
   useEffect(() => {
     (async () => {
       await tf.ready()
+      const model = await cocossd.load()
+      setModel(model)
       const { status } = await Camera.requestPermissionsAsync();
       setHasPermission(status === 'granted');
     })();
   }, []);
+
+  function handleCameraStream(images, updatePreview, gl) {
+    const loop = async () => {
+      const nextImageTensor = images.next().value
+      await getPrediction(nextImageTensor)
+      tf.dispose(nextImageTensor)
+      requestAnimationFrame(loop);
+    }
+    loop();
+  }
+
+  const getPrediction = async (tensor) => {
+    if (!tensor) return
+    const prediction = await model.detect(tensor)
+    if (!prediction || prediction.length === 0) return
+    const topPrediction = prediction[0]
+    if (topPrediction.score > 0.2) {
+      setPrediction(topPrediction)
+    }
+  }
 
   if (hasPermission === null) {
     return <View />;
@@ -52,20 +79,23 @@ export default function App() {
       <TensorCamera
        style={styles.camera}
        type={Camera.Constants.Type.front}
-
-       resizeHeight={CAMERA_HEIGHT}
-       resizeWidth={CAMERA_WIDTH}
+       cameraTextureHeight={textureDims.height}
+       cameraTextureWidth={textureDims.width}
+       resizeHeight={tensorDims.height}
+       resizeWidth={tensorDims.width}
        resizeDepth={3}
        onReady={handleCameraStream}
        autorender={true}
       />
+      <Text>Score: {prediction.score}</Text>
+      <Text>Class: {prediction.class}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // flex: 1,
   },
   camera: {
     width: CAMERA_WIDTH,
